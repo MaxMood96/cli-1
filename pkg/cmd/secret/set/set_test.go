@@ -11,12 +11,13 @@ import (
 
 	"github.com/MakeNowJust/heredoc"
 	"github.com/cli/cli/v2/internal/config"
+	"github.com/cli/cli/v2/internal/gh"
 	"github.com/cli/cli/v2/internal/ghrepo"
+	"github.com/cli/cli/v2/internal/prompter"
 	"github.com/cli/cli/v2/pkg/cmd/secret/shared"
 	"github.com/cli/cli/v2/pkg/cmdutil"
 	"github.com/cli/cli/v2/pkg/httpmock"
 	"github.com/cli/cli/v2/pkg/iostreams"
-	"github.com/cli/cli/v2/pkg/prompt"
 	"github.com/google/shlex"
 	"github.com/stretchr/testify/assert"
 )
@@ -265,7 +266,7 @@ func Test_setRun_repo(t *testing.T) {
 				HttpClient: func() (*http.Client, error) {
 					return &http.Client{Transport: reg}, nil
 				},
-				Config: func() (config.Config, error) { return config.NewBlankConfig(), nil },
+				Config: func() (gh.Config, error) { return config.NewBlankConfig(), nil },
 				BaseRepo: func() (ghrepo.Interface, error) {
 					return ghrepo.FromFullName("owner/repo")
 				},
@@ -306,7 +307,7 @@ func Test_setRun_env(t *testing.T) {
 		HttpClient: func() (*http.Client, error) {
 			return &http.Client{Transport: reg}, nil
 		},
-		Config: func() (config.Config, error) { return config.NewBlankConfig(), nil },
+		Config: func() (gh.Config, error) { return config.NewBlankConfig(), nil },
 		BaseRepo: func() (ghrepo.Interface, error) {
 			return ghrepo.FromFullName("owner/repo")
 		},
@@ -407,7 +408,7 @@ func Test_setRun_org(t *testing.T) {
 			tt.opts.HttpClient = func() (*http.Client, error) {
 				return &http.Client{Transport: reg}, nil
 			}
-			tt.opts.Config = func() (config.Config, error) {
+			tt.opts.Config = func() (gh.Config, error) {
 				return config.NewBlankConfig(), nil
 			}
 			tt.opts.IO = ios
@@ -489,7 +490,7 @@ func Test_setRun_user(t *testing.T) {
 			tt.opts.HttpClient = func() (*http.Client, error) {
 				return &http.Client{Transport: reg}, nil
 			}
-			tt.opts.Config = func() (config.Config, error) {
+			tt.opts.Config = func() (gh.Config, error) {
 				return config.NewBlankConfig(), nil
 			}
 			tt.opts.IO = ios
@@ -527,7 +528,7 @@ func Test_setRun_shouldNotStore(t *testing.T) {
 		HttpClient: func() (*http.Client, error) {
 			return &http.Client{Transport: reg}, nil
 		},
-		Config: func() (config.Config, error) {
+		Config: func() (gh.Config, error) {
 			return config.NewBlankConfig(), nil
 		},
 		BaseRepo: func() (ghrepo.Interface, error) {
@@ -595,12 +596,14 @@ func Test_getBodyPrompt(t *testing.T) {
 	ios.SetStdinTTY(true)
 	ios.SetStdoutTTY(true)
 
-	//nolint:staticcheck // SA1019: prompt.NewAskStubber is deprecated: use PrompterMock
-	as := prompt.NewAskStubber(t)
-	as.StubPrompt("Paste your secret").AnswerWith("cool secret")
+	pm := prompter.NewMockPrompter(t)
+	pm.RegisterPassword("Paste your secret:", func(_ string) (string, error) {
+		return "cool secret", nil
+	})
 
 	body, err := getBody(&SetOptions{
-		IO: ios,
+		IO:       ios,
+		Prompter: pm,
 	})
 	assert.NoError(t, err)
 	assert.Equal(t, string(body), "cool secret")

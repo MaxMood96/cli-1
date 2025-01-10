@@ -20,10 +20,12 @@ type Extension interface {
 	Path() string // Path to executable
 	URL() string
 	CurrentVersion() string
+	LatestVersion() string
 	IsPinned() bool
 	UpdateAvailable() bool
 	IsBinary() bool
 	IsLocal() bool
+	Owner() string
 }
 
 //go:generate moq -rm -out manager_mock.go . ExtensionManager
